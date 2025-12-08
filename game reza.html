@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkour Game - Endless Runner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            max-width: 900px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        #gameCanvas {
+            border: 4px solid #fff;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: block;
+            margin: 0 auto;
+            background: #87CEEB;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 15px;
+            margin: 15px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.1em;
+        }
+
+        .modal-content input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .leaderboard {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+
+        .leaderboard table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .leaderboard th, .leaderboard td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .leaderboard th {
+            background: #667eea;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        .leaderboard tr:hover {
+            background: #f5f5f5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #hud {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            right: 30px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        .hud-item {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+
+        .heart {
+            color: #ff4757;
+            font-size: 1.3em;
+        }
+
+        @media (max-width: 768px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            
+            .modal-content {
+                padding: 25px;
+            }
+            
+            #hud {
+                font-size: 0.9em;
+                top: 15px;
+                left: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="hud" class="hidden">
+            <div class="hud-item">Level: <span id="levelDisplay">1</span></div>
+            <div class="hud-item">Skor: <span id="scoreDisplay">0</span></div>
+            <div class="hud-item">Nyawa: <span id="livesDisplay"></span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2>🎮 Parkour Game</h2>
+            <p>Masukkan nama Anda untuk memulai!</p>
+            <input type="text" id="playerName" placeholder="Nama pemain..." maxlength="20">
+            <br>
+            <button class="btn" onclick="startGame()">Mulai Bermain</button>
+            <button class="btn" onclick="showLeaderboard()">Lihat Leaderboard</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboardModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>🏆 Leaderboard</h2>
+            <div class="leaderboard">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Peringkat</th>
+                            <th>Nama</th>
+                            <th>Skor</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+            <button class="btn" onclick="hideLeaderboard()">Kembali</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>💀 Game Over!</h2>
+            <p style="font-size: 1.5em; margin: 20px 0;">Skor Akhir: <strong id="finalScore">0</strong></p>
+            <p style="font-size: 1.2em; margin: 10px 0;">Level: <strong id="finalLevel">1</strong></p>
+            <button class="btn" onclick="restartGame()">Main Lagi</button>
+            <button class="btn" onclick="backToMenu()">Menu Utama</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameState = 'menu';
+        let playerName = '';
+        let score = 0;
+        let level = 1;
+        let lives = 3;
+        let gameSpeed = 1.8;
+        let platformsPassed = 0; // Track platforms passed for level progression
+        const PLATFORMS_PER_LEVEL = 15; // Platforms needed to advance level
+        const MAX_LEVEL = 20;
+
+        // Leaderboard storage
+        let leaderboardData = [];
+
+        // Load leaderboard from memory
+        function loadLeaderboard() {
+            // Initialize with empty array if no data
+            if (leaderboardData.length === 0) {
+                leaderboardData = [];
+            }
+            return leaderboardData;
+        }
+
+        // Save leaderboard to memory
+        function saveLeaderboard(data) {
+            leaderboardData = data;
+        }
+
+        // Player
+        const player = {
+            x: 100,
+            y: 300,
+            width: 30,
+            height: 40,
+            dy: 0,
+            gravity: 0.5,
+            jumpPower: -13.5,
+            grounded: false,
+            doubleJumpAvailable: false,
+            hasDoubleJump: false,
+            invincible: false,
+            invincibleTime: 0,
+            mushroomPower: false,
+            mushroomPowerTime: 0
+        };
+
+        // Game objects
+        let platforms = [];
+        let enemies = [];
+        let mushrooms = [];
+        let particles = [];
+        let finishFlag = null;
+
+        // Themes
+        const themes = {
+            normal: { bg: '#87CEEB', ground: '#8B4513', platform: '#228B22', enemy: '#FF4500' },
+            lava: { bg: '#2C1810', ground: '#8B0000', platform: '#B22222', enemy: '#FF6347' },
+            snow: { bg: '#E0F6FF', ground: '#FFFFFF', platform: '#B0E0E6', enemy: '#4682B4' }
+        };
+
+        let currentTheme = themes.normal;
+
+        function updateTheme() {
+            if (level % 3 === 1) currentTheme = themes.normal;
+            else if (level % 3 === 2) currentTheme = themes.lava;
+            else currentTheme = themes.snow;
+        }
+
+        function startGame() {
+            const nameInput = document.getElementById('playerName');
+            playerName = nameInput.value.trim() || 'Anonymous';
+            
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            
+            gameState = 'playing';
+            resetGame();
+            gameLoop();
+        }
+
+        function resetGame() {
+            score = 0;
+            level = 1;
+            lives = 3;
+            gameSpeed = 1.8;
+            platformsPassed = 0;
+            player.x = 100;
+            player.y = 100;
+            player.dy = 0;
+            player.grounded = false;
+            player.hasDoubleJump = false;
+            player.doubleJumpAvailable = false;
+            player.invincible = false;
+            player.invincibleTime = 0;
+            player.mushroomPower = false;
+            player.mushroomPowerTime = 0;
+            platforms = [];
+            enemies = [];
+            mushrooms = [];
+            particles = [];
+            finishFlag = null;
+            updateTheme();
+            generateLevel();
+            updateHUD();
+        }
+
+        function generateLevel() {
+            platforms = [];
+            enemies = [];
+            mushrooms = [];
+            finishFlag = null;
+
+            // Ground platform
+            platforms.push({ x: 0, y: 400, width: canvas.width, height: 50 });
+
+            // Calculate difficulty based on level
+            const enemyChance = Math.min(0.15 + level * 0.03, 0.7); // 15% to 70%
+            const enemySpeed = 0.8 + level * 0.15;
+            const platformCount = level === MAX_LEVEL ? 20 : 15;
+            
+            const baseGap = Math.max(70, 90 - level * 1); // Gap gets slightly smaller
+            const gapVariation = 15;
+            
+            let currentX = 150;
+
+            for (let i = 0; i < platformCount; i++) {
+                const gap = baseGap + Math.random() * gapVariation;
+                currentX += gap;
+                
+                const baseHeight = 280;
+                const heightVariation = 30 + level * 2; // More height variation at higher levels
+                const y = baseHeight + Math.sin(i * 0.8) * heightVariation;
+                
+                // Determine if this platform has enemy
+                const hasEnemy = i > 2 && Math.random() < enemyChance;
+                
+                // Longer platforms with enemies
+                const width = hasEnemy ? 140 + Math.random() * 30 : 85 + Math.random() * 25;
+                
+                platforms.push({ x: currentX, y, width, height: 15 });
+
+                // Add enemies
+                if (hasEnemy) {
+                    // Higher levels can have multiple enemies on same platform
+                    const enemyCount = level > 10 ? (Math.random() < 0.3 ? 2 : 1) : 1;
+                    for (let e = 0; e < enemyCount; e++) {
+                        enemies.push({
+                            x: currentX + (width / (enemyCount + 1)) * (e + 1),
+                            y: y - 20,
+                            width: 25,
+                            height: 25,
+                            speed: enemySpeed
+                        });
+                    }
+                }
+
+                currentX += width;
+
+                // Add mushrooms (less common at higher levels)
+                if (i > 4 && Math.random() < Math.max(0.05, 0.15 - level * 0.005) && !hasEnemy) {
+                    mushrooms.push({
+                        x: currentX - width / 2 - 10,
+                        y: y - 25,
+                        width: 20,
+                        height: 25,
+                        collected: false
+                    });
+                }
+            }
+
+            // Add finish flag at level 20
+            if (level === MAX_LEVEL) {
+                const lastPlatform = platforms[platforms.length - 1];
+                finishFlag = {
+                    x: lastPlatform.x + lastPlatform.width - 30,
+                    y: lastPlatform.y - 60,
+                    width: 15,
+                    height: 60,
+                    reached: false
+                };
+            }
+        }
+
+        function handleInput() {
+            document.addEventListener('keydown', (e) => {
+                if (gameState !== 'playing') return;
+                
+                if (e.code === 'Space' || e.code === 'ArrowUp') {
+                    if (player.grounded) {
+                        player.dy = player.jumpPower;
+                        player.grounded = false;
+                        if (player.hasDoubleJump) {
+                            player.doubleJumpAvailable = true;
+                        }
+                    } else if (player.doubleJumpAvailable) {
+                        player.dy = player.jumpPower;
+                        player.doubleJumpAvailable = false;
+                        createParticles(player.x + player.width / 2, player.y + player.height, '#FFD700');
+                    }
+                }
+            });
+
+            canvas.addEventListener('click', () => {
+                if (gameState !== 'playing') return;
+                
+                if (player.grounded) {
+                    player.dy = player.jumpPower;
+                    player.grounded = false;
+                    if (player.hasDoubleJump) {
+                        player.doubleJumpAvailable = true;
+                    }
+                } else if (player.doubleJumpAvailable) {
+                    player.dy = player.jumpPower;
+                    player.doubleJumpAvailable = false;
+                    createParticles(player.x + player.width / 2, player.y + player.height, '#FFD700');
+                }
+            });
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Update invincibility timer (from damage)
+            if (player.invincible) {
+                player.invincibleTime--;
+                if (player.invincibleTime <= 0) {
+                    player.invincible = false;
+                }
+            }
+
+            // Update mushroom power timer
+            if (player.mushroomPower) {
+                player.mushroomPowerTime--;
+                if (player.mushroomPowerTime <= 0) {
+                    player.mushroomPower = false;
+                }
+            }
+
+            // Apply gravity
+            player.dy += player.gravity;
+            player.y += player.dy;
+            player.grounded = false;
+
+            // Collision detection with platforms
+            platforms.forEach(p => {
+                // Check if player is above platform and falling onto it
+                if (player.x + player.width > p.x &&
+                    player.x < p.x + p.width &&
+                    player.y + player.height >= p.y &&
+                    player.y + player.height <= p.y + p.height &&
+                    player.dy >= 0) {
+                    // Snap player to top of platform
+                    player.y = p.y - player.height;
+                    player.dy = 0;
+                    player.grounded = true;
+                }
+            });
+
+            // Check if player falls off screen - ALWAYS DIES (no mushroom protection)
+            if (player.y > canvas.height) {
+                loseLife();
+                return;
+            }
+
+            platforms.forEach(p => p.x -= gameSpeed);
+            enemies.forEach(e => e.x -= gameSpeed);
+            mushrooms.forEach(m => m.x -= gameSpeed);
+
+            // Enemy collision - only if not invincible AND not having mushroom power
+            if (!player.invincible && !player.mushroomPower) {
+                enemies.forEach(e => {
+                    if (player.x < e.x + e.width &&
+                        player.x + player.width > e.x &&
+                        player.y < e.y + e.height &&
+                        player.y + player.height > e.y) {
+                        loseLife();
+                    }
+                });
+            }
+
+            mushrooms.forEach(m => {
+                if (!m.collected &&
+                    player.x < m.x + m.width &&
+                    player.x + player.width > m.x &&
+                    player.y < m.y + m.height &&
+                    player.y + player.height > m.y) {
+                    m.collected = true;
+                    player.mushroomPower = true;
+                    player.mushroomPowerTime = 600; // 10 seconds at 60 fps
+                    createParticles(m.x + m.width / 2, m.y + m.height / 2, '#FFD700');
+                    createParticles(m.x + m.width / 2, m.y + m.height / 2, '#00FF00');
+                    score += 50;
+                }
+            });
+
+            // Remove platforms that are off-screen and count them
+            const oldPlatformCount = platforms.length;
+            platforms = platforms.filter(p => p.x + p.width > -50);
+            const removedPlatforms = oldPlatformCount - platforms.length;
+            
+            if (removedPlatforms > 0 && level < MAX_LEVEL) {
+                platformsPassed += removedPlatforms;
+                
+                // Check if should advance to next level
+                if (platformsPassed >= PLATFORMS_PER_LEVEL) {
+                    level++;
+                    platformsPassed = 0;
+                    gameSpeed += 0.08; // Reduced from 0.15
+                    updateTheme();
+                    
+                    // Show level up message
+                    createParticles(canvas.width / 2, canvas.height / 2, '#FFD700');
+                    
+                    updateHUD();
+                }
+            }
+            
+            enemies = enemies.filter(e => e.x + e.width > -50);
+            mushrooms = mushrooms.filter(m => m.x + m.width > -50);
+
+            // Check if player reached finish flag
+            if (finishFlag && !finishFlag.reached) {
+                if (player.x + player.width > finishFlag.x &&
+                    player.x < finishFlag.x + finishFlag.width &&
+                    player.y + player.height > finishFlag.y &&
+                    player.y < finishFlag.y + finishFlag.height) {
+                    finishFlag.reached = true;
+                    gameWin();
+                    return;
+                }
+            }
+
+            // Generate new platforms when needed
+            if (platforms.length < 8 && level < MAX_LEVEL) {
+                const lastPlatform = platforms[platforms.length - 1];
+                const baseGap = Math.max(70, 90 - level * 1);
+                const gapVariation = 15;
+                const gap = baseGap + Math.random() * gapVariation;
+                
+                const x = lastPlatform.x + lastPlatform.width + gap;
+                const baseHeight = 280;
+                const heightVariation = 30 + level * 2;
+                const y = baseHeight + Math.sin(platforms.length * 0.8) * heightVariation;
+                
+                const enemyChance = Math.min(0.15 + level * 0.03, 0.7);
+                const hasEnemy = Math.random() < enemyChance;
+                
+                const width = hasEnemy ? 140 + Math.random() * 30 : 85 + Math.random() * 25;
+                
+                platforms.push({ x, y, width, height: 15 });
+
+                if (hasEnemy) {
+                    const enemyCount = level > 10 ? (Math.random() < 0.3 ? 2 : 1) : 1;
+                    const enemySpeed = 0.8 + level * 0.15;
+                    for (let e = 0; e < enemyCount; e++) {
+                        enemies.push({
+                            x: x + (width / (enemyCount + 1)) * (e + 1),
+                            y: y - 20,
+                            width: 25,
+                            height: 25,
+                            speed: enemySpeed
+                        });
+                    }
+                }
+
+                if (Math.random() < Math.max(0.05, 0.15 - level * 0.005) && !hasEnemy) {
+                    mushrooms.push({
+                        x: x + width / 2 - 10,
+                        y: y - 25,
+                        width: 20,
+                        height: 25,
+                        collected: false
+                    });
+                }
+            }
+
+            score += 1;
+            
+            if (score % 800 === 0) {
+                level++;
+                gameSpeed += 0.2;
+                updateTheme();
+                updateHUD();
+            }
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            updateHUD();
+        }
+
+        function draw() {
+            ctx.fillStyle = currentTheme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = currentTheme.ground;
+            platforms.forEach(p => {
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+            });
+
+            ctx.fillStyle = currentTheme.platform;
+            platforms.slice(1).forEach(p => {
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+            });
+
+            mushrooms.forEach(m => {
+                if (!m.collected) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(m.x + 7, m.y + 10, 6, 15);
+                    ctx.fillStyle = '#FF0000';
+                    ctx.beginPath();
+                    ctx.arc(m.x + 10, m.y + 10, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(m.x + 6, m.y + 6, 3, 3);
+                    ctx.fillRect(m.x + 13, m.y + 8, 3, 3);
+                }
+            });
+
+            ctx.fillStyle = currentTheme.enemy;
+            enemies.forEach(e => {
+                ctx.fillRect(e.x, e.y, e.width, e.height);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(e.x + 5, e.y + 5, 5, 5);
+                ctx.fillRect(e.x + 15, e.y + 5, 5, 5);
+                ctx.fillStyle = currentTheme.enemy;
+            });
+
+            // Draw finish flag if exists
+            if (finishFlag && !finishFlag.reached) {
+                // Flag pole
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(finishFlag.x + 5, finishFlag.y, 5, finishFlag.height);
+                
+                // Flag
+                ctx.fillStyle = '#00FF00';
+                ctx.beginPath();
+                ctx.moveTo(finishFlag.x + 10, finishFlag.y);
+                ctx.lineTo(finishFlag.x + 40, finishFlag.y + 15);
+                ctx.lineTo(finishFlag.x + 10, finishFlag.y + 30);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Checkered pattern
+                ctx.fillStyle = '#FFFFFF';
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        if ((i + j) % 2 === 0) {
+                            ctx.fillRect(finishFlag.x + 10 + i * 10, finishFlag.y + j * 15, 10, 15);
+                        }
+                    }
+                }
+            }
+
+            // Draw player with effects
+            if (!player.invincible || Math.floor(player.invincibleTime / 5) % 2 === 0) {
+                // Draw mushroom power glow
+                if (player.mushroomPower) {
+                    ctx.fillStyle = '#00FF00';
+                    ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.2;
+                    ctx.fillRect(player.x - 8, player.y - 8, player.width + 16, player.height + 16);
+                    ctx.globalAlpha = 1;
+                }
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(player.x + 8, player.y + 8, 4, 4);
+                ctx.fillRect(player.x + 18, player.y + 8, 4, 4);
+                ctx.fillRect(player.x + 10, player.y + 25, 10, 3);
+            } else {
+                // Draw transparent player when blinking from damage
+                ctx.fillStyle = '#FFD700';
+                ctx.globalAlpha = 0.3;
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                ctx.globalAlpha = 1;
+            }
+
+            // Draw mushroom power indicator
+            if (player.mushroomPower) {
+                ctx.fillStyle = '#00FF00';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('🍄 KEBAL', player.x - 10, player.y - 10);
+            }
+
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillRect(p.x, p.y, 4, 4);
+                ctx.globalAlpha = 1;
+            });
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 30,
+                    color
+                });
+            }
+        }
+
+        function loseLife() {
+            if (player.invincible) return; // Don't lose life if already invincible
+            
+            lives--;
+            
+            // Reset player position to start
+            player.x = 100;
+            player.y = 100;
+            player.dy = 0;
+            player.grounded = false;
+            
+            player.invincible = true;
+            player.invincibleTime = 120; // 2 seconds of invincibility (60 fps)
+            player.hasDoubleJump = false;
+            player.doubleJumpAvailable = false;
+            player.mushroomPower = false; // Lose mushroom power when hit
+            player.mushroomPowerTime = 0;
+            
+            // Create death particles
+            createParticles(player.x + player.width / 2, player.y + player.height / 2, '#FF0000');
+            createParticles(player.x + player.width / 2, player.y + player.height / 2, '#FFD700');
+            
+            updateHUD();
+            
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            gameState = 'gameover';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLevel').textContent = level;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+            
+            submitScore();
+        }
+
+        function gameWin() {
+            gameState = 'win';
+            score += 5000; // Bonus for completing all levels
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLevel').textContent = level;
+            
+            // Change modal text for win
+            const modal = document.getElementById('gameOverModal');
+            modal.querySelector('h2').textContent = '🎉 SELAMAT! KAMU MENANG! 🎉';
+            modal.classList.remove('hidden');
+            
+            submitScore();
+        }
+
+        function submitScore() {
+            const leaderboard = loadLeaderboard();
+            leaderboard.push({
+                name: playerName,
+                score: score,
+                level: level
+            });
+            
+            // Sort by score descending
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Keep only top 50
+            const top50 = leaderboard.slice(0, 50);
+            saveLeaderboard(top50);
+            
+            console.log('Score saved:', { name: playerName, score, level });
+        }
+
+        function updateHUD() {
+            document.getElementById('levelDisplay').textContent = level;
+            document.getElementById('scoreDisplay').textContent = score;
+            document.getElementById('livesDisplay').innerHTML = '❤️'.repeat(lives);
+        }
+
+        function showLeaderboard() {
+            const data = loadLeaderboard();
+            const tbody = document.getElementById('leaderboardBody');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Belum ada data leaderboard. Mainkan game untuk menjadi yang pertama!</td></tr>';
+            } else {
+                // Show top 10
+                const top10 = data.slice(0, 10);
+                top10.forEach((entry, i) => {
+                    const row = `<tr>
+                        <td>${i + 1}</td>
+                        <td>${entry.name}</td>
+                        <td>${entry.score}</td>
+                        <td>${entry.level}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
+            
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('leaderboardModal').classList.remove('hidden');
+        }
+
+        function hideLeaderboard() {
+            document.getElementById('leaderboardModal').classList.add('hidden');
+            document.getElementById('loginModal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverModal').classList.remove('hidden');
+            // Reset modal title
+            document.getElementById('gameOverModal').querySelector('h2').textContent = '💀 Game Over!';
+            document.getElementById('gameOverModal').classList.add('hidden');
+            gameState = 'playing';
+            resetGame();
+        }
+
+        function backToMenu() {
+            // Reset modal title
+            document.getElementById('gameOverModal').querySelector('h2').textContent = '💀 Game Over!';
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('loginModal').classList.remove('hidden');
+            gameState = 'menu';
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        handleInput();
+    </script>
+</body>
+</html>
